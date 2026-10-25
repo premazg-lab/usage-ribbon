@@ -59,10 +59,11 @@ Traka je zadano na engleskom. Za hrvatski postavi opciju plugina **Language** na
 Jedan red:
 
 ```
-5H ▬▬▬|▭▭ 26%  3h 21m   7D ▬▬▬▬▬|▭ 77%  1d 21h   ♨ TOPLO 59m · $0.08   ⌃
+5H ▬▬▬|▭▭ 26%  3h 21m   7D ▬▬▬▬▬|▭ 77%  1d 21h · OP ~79%   ♨ TOPLO 59m · $0.08   ⌃
 ```
 
 - **5H** je 5-satni prozor, **7D** 7-dnevni. Svaki pokazuje koliko si **potrošio** i koliko je do reseta.
+- **OP ~79%** iza 7D je procjena po modelu za tvoj trenutni model (FA, OP, SO, HA), u boji tempa. Pojavi se nakon prvog odgovora, kad je model poznat.
 - **TOPLO** s minutama koliko cache još ostaje topao i koliko košta sljedeća poruka, ili **HLADNO** s cijenom na prvom mjestu i koliko je dugo hladan.
 - Strelica desno otvara karticu.
 
@@ -129,7 +130,7 @@ usage-ribbon/
 │   ├── learn.ts            tablica cijena i učenje po modelu
 │   └── i18n.ts             svi natpisi trake, na engleskom i hrvatskom
 ├── types/index.d.ts        oblik onoga što traka pamti
-├── tests/                  5 testova: toplo i hladno, tempo i cijena, učenje, hrvatski, terminal i desktop
+├── tests/                  7 testova: toplo i hladno, tempo i cijena, učenje, hrvatski, prazna sesija, procjena u redu, terminal i desktop
 └── assets/                 snimka
 ```
 

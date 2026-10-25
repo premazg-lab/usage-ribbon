@@ -130,13 +130,27 @@ function nextCost(c: Cache, f: Family) {
   return (c.tokens / 1_000_000) * perToken
 }
 
+const limitsOf = (limits: SessionRateLimit[]): Limit[] => limits.map(l => ({ kind: l.kind, pct: l.percentUsed, resetsAt: l.resetsAt }))
+
+// an empty reading (no reply yet) keeps the limits the band already has
 function snapFrom(limits: SessionRateLimit[], context: SessionContextUsage, prev: Snap | null): Snap {
+  const fresh = limitsOf(limits)
   return {
     ...prev,
-    limits: limits.map(l => ({ kind: l.kind, pct: l.percentUsed, resetsAt: l.resetsAt })),
+    limits: fresh.length ? fresh : prev?.limits ?? [],
     ctxTokens: context.tokens ?? prev?.ctxTokens,
     ctxWindow: context.window,
   }
+}
+
+// the last limits any session read, so a new session's band shows them before its first reply
+async function remember($: EngineInterface, limits: SessionRateLimit[]) {
+  if (limits.length) await $.store.set('limits', limitsOf(limits))
+}
+
+async function recall($: EngineInterface, now: number): Promise<Limit[]> {
+  const stored = ((await $.store.get('limits')) as Limit[] | undefined) ?? []
+  return stored.filter(l => l.resetsAt && Date.parse(l.resetsAt) > now)
 }
 
 async function learn($: EngineInterface, fn: (l: Learn) => Learn) {
@@ -154,7 +168,9 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     const usage = await $.session.usage()
-    await update($, snap, prev => snapFrom(usage.rateLimits, usage.context, prev ?? null))
+    const kept = await recall($, await $.clock.now())
+    await update($, snap, prev => snapFrom(usage.rateLimits, usage.context, { ctxWindow: 0, ...prev, limits: prev?.limits.length ? prev.limits : kept }))
+    await remember($, usage.rateLimits)
     const stored = (await $.store.get('learn')) as Learn | undefined
     await update($, learned, () => stored ?? emptyLearn())
     $.clock.every(30_000, () => void update($, tick, n => (n ?? 0) + 1))
@@ -163,6 +179,7 @@ export const register: Register = (on, options) => {
 
   on('session.measure', async ($, e, next) => {
     await update($, snap, prev => snapFrom(e.rateLimits, e.context, prev ?? null))
+    await remember($, e.rateLimits)
     const week = e.rateLimits.find(l => l.kind === 'seven_day')
     if (week) await learn($, l => learnMeasure(l, week.percentUsed, week.resetsAt))
     return next(e)
@@ -220,6 +237,9 @@ export const register: Register = (on, options) => {
     const [modelSay, modelMore] = modelPace ? verdict(modelPace, t) : [t.learning, t.needsMoreReplies]
     const modelColor = modelPace ? tempoColor(modelPace.projected) : C.mark
     const basis = est ? `${t.estimate} · ${est.basis === 'learned' ? t.learned(est.steps) : t.fromPrices}` : t.estimate
+    // the closed row repeats the model estimate after 7D, once a reply has told which model is current
+    const rowPace = cache?.family ? modelPace : undefined
+    const abbr = pick.slice(0, 2)
 
     if (e.surface === 'terminal') {
       const { Box, Text, Button } = $.ui.resolve(e)
@@ -250,6 +270,9 @@ export const register: Register = (on, options) => {
               <Text key={`r-${p.label}`}>
                 <Text dimColor>{p.label} </Text>
                 <Text color={tempoColor(p.projected)}>{plainBar(p, 8)}</Text> {p.used}% <Text dimColor>{dur(p.resetIn)}</Text>
+                {p.kind === 'seven_day' && rowPace && (
+                  <Text> <Text dimColor>·</Text> <Text color={C.amber}>{abbr}</Text> <Text color={tempoColor(rowPace.projected)}>~{rowPace.projected}%</Text></Text>
+                )}
               </Text>
             ))}
             {mood && <Text color={mood.color}>{mood.word}</Text>}
@@ -272,6 +295,9 @@ export const register: Register = (on, options) => {
             {small(p)}
             <Text>{p.used}%</Text>
             <Text dimColor>{dur(p.resetIn)}</Text>
+            {p.kind === 'seven_day' && rowPace && <Text dimColor>·</Text>}
+            {p.kind === 'seven_day' && rowPace && <Text color={C.amber}>{abbr}</Text>}
+            {p.kind === 'seven_day' && rowPace && <Text color={tempoColor(rowPace.projected)}>~{rowPace.projected}%</Text>}
           </Box>
         ))}
         {mood && (

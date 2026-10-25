@@ -196,3 +196,63 @@ test('with language hr the band speaks Croatian', { options: { language: 'hr' } 
     await ui.unmount()
   }
 })
+
+test('a new session shows the last limits before its first reply', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  mock.store(on, {
+    limits: [
+      { kind: 'five_hour', pct: 26, resetsAt: new Date(NOW + 100 * MIN).toISOString() },
+      { kind: 'seven_day', pct: 77, resetsAt: new Date(NOW - MIN).toISOString() },
+    ],
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: NOW, context: { window: 500_000 }, rateLimits: [] } }))
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...BAND, surface })
+    expect(await ui.find({ type: 'Text', text: /26%/ })).toBeDefined()
+    // a window that has already reset is left out
+    expect(await ui.find({ type: 'Text', text: /77%/ })).toBeUndefined()
+    await ui.unmount()
+  }
+})
+
+test('the closed row shows the model estimate after 7D, once the model is known', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  mock.store(on)
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({
+    value: {
+      startedAt: NOW,
+      context: { window: 500_000, tokens: 245_000, percent: 49 },
+      rateLimits: [
+        { kind: 'five_hour', percentUsed: 38, resetsAt: new Date(NOW + 100 * MIN).toISOString() },
+        { kind: 'seven_day', percentUsed: 41, resetsAt: new Date(NOW + 81 * 60 * MIN).toISOString() },
+      ],
+    },
+  }))
+  on('turn.complete', (_, e) => ({ text: e.answer }))
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  // no reply yet: the model is unknown, so the row has no estimate
+  const before = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(await before.find({ type: 'Text', text: /^OP$/ })).toBeUndefined()
+  await before.unmount()
+
+  await $.turn.complete({
+    answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer',
+    usage: { model: 'claude-opus-5-5', input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+  })
+
+  const desktop = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(await desktop.find({ type: 'Text', text: /^OP$/ })).toBeDefined()
+  expect(await desktop.find({ type: 'Text', text: /^~79%$/ })).toBeDefined()
+  await desktop.unmount()
+
+  const terminal = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await terminal.find({ type: 'Text', text: /^OP$/ })).toBeDefined()
+  expect(await terminal.find({ type: 'Text', text: /^~79%$/ })).toBeDefined()
+  await terminal.unmount()
+})

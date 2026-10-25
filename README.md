@@ -57,10 +57,11 @@ The band is in English by default. To switch it to Croatian, set the plugin opti
 One row:
 
 ```
-5H ▬▬▬|▭▭ 26%  3h 21m   7D ▬▬▬▬▬|▭ 77%  1d 21h   ♨ WARM 59m · $0.08   ⌃
+5H ▬▬▬|▭▭ 26%  3h 21m   7D ▬▬▬▬▬|▭ 77%  1d 21h · OP ~79%   ♨ WARM 59m · $0.08   ⌃
 ```
 
 - **5H** is your 5-hour window, **7D** your 7-day window. Each shows how much you have **used** and how long until it resets.
+- **OP ~79%** after 7D is the per-model estimate for your current model (FA, OP, SO, HA), in the colour of its pace. It appears after the first reply, once the model is known.
 - **WARM** with the minutes the cache stays warm and what your next message costs, or **COLD** with the price first and how long it has been cold.
 - The arrow on the right opens the card.
 
@@ -127,7 +128,7 @@ usage-ribbon/
 │   ├── learn.ts            the price table and the per-model learning
 │   └── i18n.ts             every word the band shows, in English and Croatian
 ├── types/index.d.ts        the shape of what the band remembers
-├── tests/                  5 tests: warm and cold, pace and price, learning, Croatian, terminal and desktop
+├── tests/                  7 tests: warm and cold, pace and price, learning, Croatian, empty session, estimate in the row, terminal and desktop
 └── assets/                 screenshot
 ```
 
