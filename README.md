@@ -8,6 +8,10 @@ A free mod for Claude Code. It adds a slim band above your prompt that shows:
 
 It installs once and is there in every session after that. No commands to learn.
 
+<p align="center">
+  <img src="assets/card-open.png" alt="usage-ribbon open card: 5H session 39%, lasts until reset; 7D week 78%, runs out in about 1d 11h; 7D Opus estimate about 106%; cache warm 58m, 100% hit, saved $111.69; next message $0.09 on Opus" width="100%">
+</p>
+
 ## Install
 
 The easy way: send this link to your agent and say "install this".
@@ -116,7 +120,8 @@ usage-ribbon/
 │   ├── register.tsx        the band: limits, pace, cache, layout
 │   └── learn.ts            the price table and the per-model learning
 ├── types/index.d.ts        the shape of what the band remembers
-└── tests/                  4 tests: warm and cold, pace and price, learning, terminal and desktop
+├── tests/                  4 tests: warm and cold, pace and price, learning, terminal and desktop
+└── assets/                 screenshot
 ```
 
 ## Remove it
