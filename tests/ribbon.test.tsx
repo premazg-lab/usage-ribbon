@@ -164,3 +164,35 @@ test('after an idle hour the band says cold', async ($, on) => {
   expect(await ui.find({ type: 'Text', text: /COLD/ })).toBeDefined()
   await ui.unmount()
 })
+
+test('with language hr the band speaks Croatian', { options: { language: 'hr' } }, async ($, on) => {
+  mock.clock(on, { now: NOW })
+  mock.store(on)
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({
+    value: {
+      startedAt: NOW,
+      context: { window: 500_000, tokens: 245_000, percent: 49 },
+      rateLimits: [
+        { kind: 'five_hour', percentUsed: 38, resetsAt: new Date(NOW + 100 * MIN).toISOString() },
+        { kind: 'seven_day', percentUsed: 41, resetsAt: new Date(NOW + 81 * 60 * MIN).toISOString() },
+      ],
+    },
+  }))
+  on('turn.complete', (_, e) => ({ text: e.answer }))
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.turn.complete({
+    answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer',
+    usage: { model: 'claude-opus-5-5', input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+  })
+
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...BAND, surface })
+    expect(await ui.find({ type: 'Text', text: /TOPLO/ })).toBeDefined()
+    await ui.press({ key: 'toggle' })
+    expect(await ui.find({ type: 'Text', text: /stižeš do reseta/ })).toBeDefined()
+    await ui.press({ key: 'toggle' })
+    await ui.unmount()
+  }
+})

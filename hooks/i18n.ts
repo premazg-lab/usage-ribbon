@@ -1,0 +1,71 @@
+// Every word the band shows, per language. Add a language by adding a block
+// with the same keys and listing it in the `language` option in plugin.json.
+
+export type Lang = 'en' | 'hr'
+
+export const STRINGS = {
+  en: {
+    session: 'session',
+    week: 'week',
+    days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    runsOutIn: (d: string) => `runs out in ~${d}`,
+    beforeReset: (d: string) => `· ${d} before reset`,
+    usedUp: 'used up',
+    waitingForReset: '· waiting for reset',
+    lastsUntilReset: 'lasts until reset',
+    tight: 'tight',
+    atThisPace: (p: number) => `· at this pace ~${p}%`,
+    resets: 'resets',
+    warm: 'WARM',
+    cold: 'COLD',
+    learning: 'learning…',
+    needsMoreReplies: '· needs more replies',
+    estimate: 'estimate',
+    learned: (n: number) => `learned (${n})`,
+    fromPrices: 'from prices',
+    noData: 'no data yet',
+    idle: 'idle',
+    context: 'context',
+    cache: 'CACHE',
+    saved: 'SAVED',
+    inCache: 'IN CACHE',
+    tokens: 'tokens',
+    of: 'of',
+    resend: 're-send',
+    next: 'NEXT',
+  },
+  hr: {
+    session: 'sesija',
+    week: 'tjedan',
+    days: ['ned.', 'pon.', 'uto.', 'sri.', 'čet.', 'pet.', 'sub.'],
+    runsOutIn: (d: string) => `zapest ćeš za ~${d}`,
+    beforeReset: (d: string) => `· ${d} prije reseta`,
+    usedUp: 'potrošeno',
+    waitingForReset: '· čekaš reset',
+    lastsUntilReset: 'stižeš do reseta',
+    tight: 'tijesno',
+    atThisPace: (p: number) => `· ovim tempom ~${p}%`,
+    resets: 'reset',
+    warm: 'TOPLO',
+    cold: 'HLADNO',
+    learning: 'učim…',
+    needsMoreReplies: '· treba još odgovora',
+    estimate: 'procjena',
+    learned: (n: number) => `naučeno (${n})`,
+    fromPrices: 'po cijenama',
+    noData: 'nema podataka',
+    idle: 'mirovanje',
+    context: 'kontekst',
+    cache: 'CACHE',
+    saved: 'UŠTEDA',
+    inCache: 'U CACHEU',
+    tokens: 'tokena',
+    of: 'od',
+    resend: 'ponovno',
+    next: 'SLJEDEĆA',
+  },
+} satisfies Record<Lang, unknown>
+
+export type Strings = (typeof STRINGS)['en']
+
+export const stringsFor = (lang: unknown): Strings => (lang === 'hr' ? STRINGS.hr : STRINGS.en)

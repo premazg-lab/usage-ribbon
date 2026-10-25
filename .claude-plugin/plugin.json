@@ -14,6 +14,13 @@
       "title": "Cache lifetime (minutes)",
       "description": "How many minutes the prompt cache stays warm after the last reply",
       "default": 60
+    },
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "Language of the band: en (English) or hr (Croatian)",
+      "options": ["en", "hr"],
+      "default": "en"
     }
   }
 }

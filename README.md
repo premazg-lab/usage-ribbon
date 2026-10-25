@@ -1,12 +1,14 @@
 # usage-ribbon
 
+**English** · [Hrvatski](README.hr.md)
+
 A free mod for Claude Code. It adds a slim band above your prompt that shows:
 
 - **How much of your 5-hour and 7-day limits you have used**, when each one resets, and whether you will make it to the reset at your current pace.
 - **What your week would look like on another model**: pick Fable, Opus, Sonnet or Haiku and see whether the same work on that model would run you out before the reset.
 - **Whether your prompt cache is warm or cold**, what your next message costs, and how much the cache has saved you.
 
-It installs once and is there in every session after that. No commands to learn.
+It installs once and is there in every session after that. No commands to learn. The band speaks **English** or **Croatian** (see [Language](#language)).
 
 <p align="center">
   <img src="assets/card-open.png" alt="usage-ribbon open card: 5H session 39%, lasts until reset; 7D week 78%, runs out in about 1d 11h; 7D Opus estimate about 106%; cache warm 58m, 100% hit, saved $111.69; next message $0.09 on Opus" width="100%">
@@ -43,6 +45,10 @@ In a Claude Code terminal session, type:
 3. Start a new session.
 
 In the desktop app, where `/plugin` does not run: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `premazg-lab/usage-ribbon`, then **Add plugin**.
+
+## Language
+
+The band is in English by default. To switch it to Croatian, set the plugin option **Language** to `hr` (`en` switches it back). In a terminal session, open `/config` and find the row **usage-ribbon · Language**. The words in this README are the English ones; [README.hr.md](README.hr.md) has the Croatian ones.
 
 ## What you see
 
@@ -113,14 +119,15 @@ Things it cannot see: usage from other sessions, from claude.ai or from the API 
 ```
 usage-ribbon/
 ├── .claude-plugin/
-│   ├── plugin.json         the mod's name, version and its one option
+│   ├── plugin.json         the mod's name, version and its two options
 │   └── marketplace.json    makes this repository installable
 ├── hooks/
 │   ├── hooks.json          points to the module
 │   ├── register.tsx        the band: limits, pace, cache, layout
-│   └── learn.ts            the price table and the per-model learning
+│   ├── learn.ts            the price table and the per-model learning
+│   └── i18n.ts             every word the band shows, in English and Croatian
 ├── types/index.d.ts        the shape of what the band remembers
-├── tests/                  4 tests: warm and cold, pace and price, learning, terminal and desktop
+├── tests/                  5 tests: warm and cold, pace and price, learning, Croatian, terminal and desktop
 └── assets/                 screenshot
 ```
 

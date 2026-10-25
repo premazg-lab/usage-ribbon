@@ -4,6 +4,8 @@ import type { EngineInterface, Register, RenderChildren, SessionRateLimit, Sessi
 import type { Learn, Limit, Snap } from '../types'
 import { FAMILIES, PRICES, emptyLearn, estimateFor, familyOf, hitOf, learnMeasure, learnTurn, savedOf } from './learn'
 import type { Family } from './learn'
+import { stringsFor } from './i18n'
+import type { Strings } from './i18n'
 
 const snap = atom({ plugin: 'usage-ribbon', key: 'snap' } as const, null)
 const isOpen = atom({ plugin: 'usage-ribbon', key: 'isOpen' } as const, false)
@@ -26,9 +28,8 @@ function dur(ms: number) {
   return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`
 }
 
-const clock = (ms: number) => {
+const clock = (ms: number, days: readonly string[]) => {
   const t = new Date(ms)
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const hm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`
   return ms - Date.now() > 20 * H ? `${days[t.getDay()]} ${hm}` : hm
 }
@@ -40,17 +41,17 @@ function windowOf(kind: string) {
   return undefined
 }
 
-function labelOf(kind: string): [string, string] {
-  if (kind === 'five_hour') return ['5H', 'session']
-  if (kind === 'seven_day') return ['7D', 'week']
+function labelOf(kind: string, t: Strings): [string, string] {
+  if (kind === 'five_hour') return ['5H', t.session]
+  if (kind === 'seven_day') return ['7D', t.week]
   const model = kind.replace(/^(seven_day|five_hour)_?/, '')
   const name = model ? model.charAt(0).toUpperCase() + model.slice(1) : kind
   return [kind.startsWith('five_hour') ? '5H' : '7D', name]
 }
 
-type Pace = { label: string; sub: string; used: number; elapsed: number; projected: number; resetIn: number; resetsAt: number }
+type Pace = { kind: string; label: string; sub: string; used: number; elapsed: number; projected: number; resetIn: number; resetsAt: number }
 
-function pace(l: Limit, now: number): Pace | undefined {
+function pace(l: Limit, now: number, t: Strings): Pace | undefined {
   const win = windowOf(l.kind)
   if (!win || !l.resetsAt) return undefined
   const resetsAt = Date.parse(l.resetsAt)
@@ -58,18 +59,18 @@ function pace(l: Limit, now: number): Pace | undefined {
   const elapsed = Math.min(1, Math.max(0, 1 - resetIn / win))
   const used = Math.round(l.pct)
   const projected = elapsed > 0.03 ? Math.round(l.pct / elapsed) : used
-  const [label, sub] = labelOf(l.kind)
-  return { label, sub, used, elapsed: elapsed * 100, projected, resetIn, resetsAt }
+  const [label, sub] = labelOf(l.kind, t)
+  return { kind: l.kind, label, sub, used, elapsed: elapsed * 100, projected, resetIn, resetsAt }
 }
 
-function verdict(p: Pace): [string, string] {
+function verdict(p: Pace, t: Strings): [string, string] {
   if (p.projected >= 100 && p.used < 100) {
     const rate = (p.projected - p.used) / Math.max(1, p.resetIn)
     const hit = (100 - p.used) / rate
-    return [`runs out in ~${dur(hit)}`, `· ${dur(p.resetIn - hit)} before reset`]
+    return [t.runsOutIn(dur(hit)), t.beforeReset(dur(p.resetIn - hit))]
   }
-  if (p.used >= 100) return ['used up', `· waiting for reset`]
-  return [p.projected < 80 ? 'lasts until reset' : 'tight', `· at this pace ~${p.projected}%`]
+  if (p.used >= 100) return [t.usedUp, t.waitingForReset]
+  return [p.projected < 80 ? t.lastsUntilReset : t.tight, t.atThisPace(p.projected)]
 }
 
 // stretched bar: the svg is oversized (4000) and its box narrows it to its own width; the time mark stays thin
@@ -148,6 +149,7 @@ const familyName = (f: Family) => f.charAt(0) + f.slice(1).toLowerCase()
 
 export const register: Register = (on, options) => {
   const ttlMs = (Number(options.cacheTtlMinutes) || 60) * 60_000
+  const t = stringsFor(options.language)
 
   on('session.start', async ($, e, next) => {
     const result = await next(e)
@@ -190,7 +192,7 @@ export const register: Register = (on, options) => {
     if (e.props.hasSurvey || !s) return next(e)
 
     const now = await $.clock.now()
-    const paces = s.limits.map(l => pace(l, now)).filter((p): p is Pace => p !== undefined)
+    const paces = s.limits.map(l => pace(l, now, t)).filter((p): p is Pace => p !== undefined)
     const cache = cacheOf(s, now, ttlMs)
     if (paces.length === 0 && !cache) return next(e)
 
@@ -199,13 +201,13 @@ export const register: Register = (on, options) => {
       await update($, isOpen, v => !v)
       if (open) await update($, chosen, () => null)
     }
-    const main = paces.filter(p => p.sub === 'session' || p.sub === 'week')
-    const mood = cache ? (cache.isWarm ? { word: 'WARM', icon: '♨', color: C.amber } : { word: 'COLD', icon: '❄', color: C.blue }) : undefined
+    const main = paces.filter(p => p.kind === 'five_hour' || p.kind === 'seven_day')
+    const mood = cache ? (cache.isWarm ? { word: t.warm, icon: '♨', color: C.amber } : { word: t.cold, icon: '❄', color: C.blue }) : undefined
     const myCost = cache?.family ? money(nextCost(cache, cache.family)) : undefined
     const moodValue = cache ? (cache.isWarm ? [dur(cache.left), myCost] : [myCost, dur(cache.idle)]).filter(Boolean) : []
 
     // third bar: estimated 7D if the same work were done by the chosen model alone
-    const week = paces.find(p => p.label === '7D' && p.sub === 'week')
+    const week = paces.find(p => p.kind === 'seven_day')
     // follows the current model; a manual pick ("CHOSEN|CURRENT") holds until the model changes or the card closes
     const current: Family = cache?.family ?? 'OPUS'
     const [manual, base] = ((await read($, chosen)) ?? '').split('|')
@@ -215,22 +217,22 @@ export const register: Register = (on, options) => {
       ? { ...week, sub: pick, projected: Math.round(week.used + (week.projected - week.used) * est.factor) }
       : undefined
     const cycle = () => update($, chosen, () => `${FAMILIES[(FAMILIES.indexOf(pick) + 1) % FAMILIES.length]}|${current}`)
-    const [modelSay, modelMore] = modelPace ? verdict(modelPace) : ['learning…', '· needs more replies']
+    const [modelSay, modelMore] = modelPace ? verdict(modelPace, t) : [t.learning, t.needsMoreReplies]
     const modelColor = modelPace ? tempoColor(modelPace.projected) : C.mark
-    const basis = est ? (est.basis === 'learned' ? `estimate · learned (${est.steps})` : 'estimate · from prices') : 'estimate'
+    const basis = est ? `${t.estimate} · ${est.basis === 'learned' ? t.learned(est.steps) : t.fromPrices}` : t.estimate
 
     if (e.surface === 'terminal') {
       const { Box, Text, Button } = $.ui.resolve(e)
       return (
         <Box flexDirection="column">
           {open && paces.map(p => {
-            const [say, more] = verdict(p)
+            const [say, more] = verdict(p, t)
             return (
               <Box key={`t-${p.label}-${p.sub}`} gap={1}>
                 <Text dimColor>{p.label} {p.sub.padEnd(7)}</Text>
                 <Text color={tempoColor(p.projected)}>{plainBar(p, 20)} {p.used}%</Text>
                 <Text color={tempoColor(p.projected)}>{say}</Text>
-                <Text dimColor>{more} · resets {dur(p.resetIn)}</Text>
+                <Text dimColor>{more} · {t.resets} {dur(p.resetIn)}</Text>
               </Box>
             )
           })}
@@ -326,7 +328,7 @@ export const register: Register = (on, options) => {
     )
 
     const blocks = paces.map(p => {
-      const [say, more] = verdict(p)
+      const [say, more] = verdict(p, t)
       return gauge(
         `p-${p.label}-${p.sub}`,
         p.label,
@@ -337,7 +339,7 @@ export const register: Register = (on, options) => {
         tempoColor(p.projected),
         say,
         more,
-        `resets ${dur(p.resetIn)} · ${clock(p.resetsAt)}`,
+        `${t.resets} ${dur(p.resetIn)} · ${clock(p.resetsAt, t.days)}`,
       )
     })
 
@@ -349,7 +351,7 @@ export const register: Register = (on, options) => {
         <Button key="model" plain onPress={cycle}><Text color={C.amber}>{familyName(pick)} ›</Text></Button>
       </Box>,
       stretchSvg(modelPace ?? { ...week, projected: week.used }, 5),
-      `7D ${familyName(pick)}: estimate ${modelPace ? `~${modelPace.projected}%` : 'no data yet'}`,
+      `7D ${familyName(pick)}: ${t.estimate} ${modelPace ? `~${modelPace.projected}%` : t.noData}`,
       modelPace ? `~${modelPace.projected}%` : `${week.used}%`,
       modelColor,
       modelSay,
@@ -369,13 +371,13 @@ export const register: Register = (on, options) => {
           <Box flexDirection="row" alignItems="center" gap={1}>
             <Text color={mood.color}>{mood.icon} {mood.word}</Text>
             <Text>{cache.isWarm ? dur(cache.left) : dur(cache.idle)}</Text>
-            {idleBar && <Svg source={idleBar} alt={`idle ${dur(cache.idle)}`} width={50} height={3} />}
+            {idleBar && <Svg source={idleBar} alt={`${t.idle} ${dur(cache.idle)}`} width={50} height={3} />}
           </Box>
           <Box flexDirection="row" alignItems="center" gap={1}>
-            <Text dimColor>CACHE</Text>
+            <Text dimColor>{t.cache}</Text>
             <Text color={s.lastHit !== undefined && s.lastHit < 50 ? C.blue : undefined}>{s.lastHit !== undefined ? `${s.lastHit}%` : '–'}</Text>
             <Text dimColor>·</Text>
-            <Text dimColor>SAVED</Text>
+            <Text dimColor>{t.saved}</Text>
             <Text>{money(Math.max(0, s.saved ?? 0))}</Text>
           </Box>
         </Box>
@@ -383,19 +385,19 @@ export const register: Register = (on, options) => {
         <Box flexDirection="column" gap={0} flexGrow={1}>
           <Box flexDirection="row" alignItems="center" gap={1}>
             <Box flexDirection="row" alignItems="center" gap={1} flexShrink={0}>
-              <Text dimColor>IN CACHE</Text>
+              <Text dimColor>{t.inCache}</Text>
               <Text>{cache.isWarm ? `${Math.round(cache.tokens / 1000)}k` : '0'}</Text>
-              <Text dimColor>tokens</Text>
+              <Text dimColor>{t.tokens}</Text>
             </Box>
-            <Box flexGrow={1} minWidth={0}><Svg source={ctxBar} alt={`context ${pctCtx}%`} height={3} /></Box>
+            <Box flexGrow={1} minWidth={0}><Svg source={ctxBar} alt={`${t.context} ${pctCtx}%`} height={3} /></Box>
             <Box flexShrink={0}>
               <Text dimColor>
-                {cache.isWarm ? `${pctCtx}% of ${Math.round(s.ctxWindow / 1000)}k` : `re-send ${Math.round(cache.tokens / 1000)}k`}
+                {cache.isWarm ? `${pctCtx}% ${t.of} ${Math.round(s.ctxWindow / 1000)}k` : `${t.resend} ${Math.round(cache.tokens / 1000)}k`}
               </Text>
             </Box>
           </Box>
           <Box flexDirection="row" alignItems="center" justifyContent="space-between" gap={1}>
-            <Text dimColor>NEXT</Text>
+            <Text dimColor>{t.next}</Text>
             {FAMILIES.map(f => (
               <Box key={`c-${f}`} flexDirection="row" alignItems="center" gap={1}>
                 <Text color={f === cache.family ? mood.color : undefined} dimColor={f !== cache.family} underline={f === cache.family}>{f}</Text>
