@@ -1,0 +1,13 @@
+{
+  "name": "usage-ribbon",
+  "owner": {
+    "name": "Prema"
+  },
+  "description": "usage-ribbon: a band above your Claude Code prompt with usage, pace and prompt-cache state",
+  "plugins": [
+    {
+      "name": "usage-ribbon",
+      "source": "./"
+    }
+  ]
+}

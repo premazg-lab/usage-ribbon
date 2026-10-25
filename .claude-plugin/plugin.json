@@ -1,0 +1,19 @@
+{
+  "name": "usage-ribbon",
+  "version": "0.1.0",
+  "description": "A band above your prompt: 5-hour and 7-day usage with pace, a per-model weekly estimate, and whether the prompt cache is warm or cold",
+  "author": {
+    "name": "Prema"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/premazg-lab/usage-ribbon",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "cacheTtlMinutes": {
+      "type": "number",
+      "title": "Cache lifetime (minutes)",
+      "description": "How many minutes the prompt cache stays warm after the last reply",
+      "default": 60
+    }
+  }
+}
